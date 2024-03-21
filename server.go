@@ -2576,6 +2576,18 @@ const (
 	defaultWriteBufferSize = 4096
 )
 
+var (
+	readBufferPoolSizeLimit  = -1
+	writeBufferPoolSizeLimit = -1
+)
+
+// SetBufferPoolSizeLimit set the max buffer size for reader & writer to be returned to the pool.
+// If the buffer size is larger it will be released instead of put back into the pool for reuse.
+func SetBufferPoolSizeLimit(readerLimit, writerLimit int) {
+	readBufferPoolSizeLimit = readerLimit
+	writeBufferPoolSizeLimit = writerLimit
+}
+
 func acquireByteReader(ctxP **RequestCtx) (*bufio.Reader, error) {
 	ctx := *ctxP
 	s := ctx.s
@@ -2625,6 +2637,9 @@ func acquireReader(ctx *RequestCtx) *bufio.Reader {
 }
 
 func releaseReader(s *Server, r *bufio.Reader) {
+	if r != nil && readBufferPoolSizeLimit >= 0 && r.Size() > readBufferPoolSizeLimit {
+		return
+	}
 	s.readerPool.Put(r)
 }
 
@@ -2643,6 +2658,9 @@ func acquireWriter(ctx *RequestCtx) *bufio.Writer {
 }
 
 func releaseWriter(s *Server, w *bufio.Writer) {
+	if w != nil && writeBufferPoolSizeLimit >= 0 && w.Size() > writeBufferPoolSizeLimit {
+		return
+	}
 	s.writerPool.Put(w)
 }
 
